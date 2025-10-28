@@ -41,6 +41,11 @@ export default function(sequelize) {
       defaultValue: 10,
       field: 'POINTS'
     },
+    question_order: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'QUESTION_ORDER'
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -49,7 +54,10 @@ export default function(sequelize) {
   }, {
     tableName: 'QUIZ_QUESTIONS',
     timestamps: false,
-    underscored: true
+    paranoid: false,
+    underscored: false,
+    // Explicitly disable deletedAt
+    deletedAt: false
   });
 
   return QuizQuestion;

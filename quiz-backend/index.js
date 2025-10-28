@@ -5,6 +5,14 @@ import db from './src/config/database.js';
 import { initializeModels } from './src/models/index.js';
 import quizRoutes from './src/routes/quizRoutes.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
+import puzzleRoutes from './src/routes/puzzleRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
+import leaderboardRoutes from './src/routes/leaderboardRoutes.js';
+import adminGameRoutes from "./src/routes/adminGameRoutes.js";
+import gameRoutes from "./src/routes/gameRoutes.js";
+import StoryRoutes from './src/routes/storyRoutes.js';
+import CommentRoutes from './src/routes/commentRoutes.js';
+import StoryMediaRoutes from './src/routes/storyMediaRoutes.js';
 
 dotenv.config();
 
@@ -20,6 +28,15 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api', quizRoutes);
+app.use('/api/puzzles', puzzleRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api', leaderboardRoutes);
+// Routes
+app.use("/api/admin/", adminGameRoutes);     // Admin routes
+app.use("/api/", gameRoutes); 
+app.use("/api/", StoryRoutes); 
+app.use("/api/", StoryMediaRoutes); 
+app.use("/api/", CommentRoutes); 
 
 // Health check
 app.get('/health', (req, res) => {

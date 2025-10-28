@@ -1,83 +1,111 @@
+// src/models/index.js
 import db from '../config/database.js';
+import Sequelize from 'sequelize';
+
+// Quiz models
 import QuizModel from './quiz.js';
 import QuizQuestionModel from './QuizQuestion.js';
 import QuizQuestionOptionModel from './QuizQuestionOption.js';
 import QuizAttemptModel from './QuizAttempt.js';
 import UserAnswerModel from './UserAnswer.js';
 
+// Puzzle models
+import PuzzleModel from './Puzzle.js';
+import PuzzleCompletionModel from './PuzzleCompletion.js';
+import WordLegendPuzzleModel from './WordLegendPuzzle.js';
+import WordLegendUserProgressModel from './WordLegendUserProgress.js';
+import WordLegendSubmissionModel from './WordLegendSubmission.js';
+
+
+// Other models
+import UserModel from './user.js';
+import LeaderboardModel from './Leaderboard.js';
+import StoryModel from './Story.js';
+import StoryMediaModel from './StoryMedia.js';
+import CommentModel from './Comment.js';
+
 let models = null;
 
 export async function initializeModels() {
-  if (models) return models;
+  if (models) return models; // Return cached models
 
   const sequelize = await db.initialize();
 
   // Initialize models
+  const Puzzle = PuzzleModel(sequelize);
+  const PuzzleCompletion = PuzzleCompletionModel(sequelize);
+
   const Quiz = QuizModel(sequelize);
   const QuizQuestion = QuizQuestionModel(sequelize);
   const QuizQuestionOption = QuizQuestionOptionModel(sequelize);
   const QuizAttempt = QuizAttemptModel(sequelize);
   const UserAnswer = UserAnswerModel(sequelize);
 
-  // Define associations
-  Quiz.hasMany(QuizQuestion, {
-    foreignKey: 'quiz_id',
-    as: 'questions',
-    onDelete: 'CASCADE'
-  });
-  QuizQuestion.belongsTo(Quiz, {
-    foreignKey: 'quiz_id',
-    as: 'quiz'
-  });
+  const User = UserModel(sequelize);
+  const Leaderboard = LeaderboardModel(sequelize);
 
-  QuizQuestion.hasMany(QuizQuestionOption, {
-    foreignKey: 'question_id',
-    as: 'options',
-    onDelete: 'CASCADE'
-  });
-  QuizQuestionOption.belongsTo(QuizQuestion, {
-    foreignKey: 'question_id',
-    as: 'question'
-  });
+  const WordLegendPuzzle = WordLegendPuzzleModel(sequelize);
+  const WordLegendUserProgress = WordLegendUserProgressModel(sequelize);
+  const WordLegendSubmission = WordLegendSubmissionModel(sequelize);
+   const Story = StoryModel(sequelize);
+   const StoryMedia = StoryMediaModel(sequelize);
+   const Comment = CommentModel(sequelize);
 
-  Quiz.hasMany(QuizAttempt, {
-    foreignKey: 'quiz_id',
-    as: 'attempts'
-  });
-  QuizAttempt.belongsTo(Quiz, {
-    foreignKey: 'quiz_id',
-    as: 'quiz'
-  });
+  // ==================== Associations ====================
 
-  QuizAttempt.hasMany(UserAnswer, {
-    foreignKey: 'attempt_id',
-    as: 'answers',
-    onDelete: 'CASCADE'
-  });
-  UserAnswer.belongsTo(QuizAttempt, {
-    foreignKey: 'attempt_id',
-    as: 'attempt'
-  });
+  // Quiz associations
+  Quiz.hasMany(QuizQuestion, { foreignKey: 'quiz_id', as: 'questions', onDelete: 'CASCADE' });
+  QuizQuestion.belongsTo(Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
 
-  QuizQuestion.hasMany(UserAnswer, {
-    foreignKey: 'question_id',
-    as: 'userAnswers'
-  });
-  UserAnswer.belongsTo(QuizQuestion, {
-    foreignKey: 'question_id',
-    as: 'question'
-  });
+  QuizQuestion.hasMany(QuizQuestionOption, { foreignKey: 'question_id', as: 'options', onDelete: 'CASCADE' });
+  QuizQuestionOption.belongsTo(QuizQuestion, { foreignKey: 'question_id', as: 'question' });
 
+  Quiz.hasMany(QuizAttempt, { foreignKey: 'quiz_id', as: 'attempts' });
+  QuizAttempt.belongsTo(Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
+
+  QuizAttempt.hasMany(UserAnswer, { foreignKey: 'attempt_id', as: 'answers', onDelete: 'CASCADE' });
+  UserAnswer.belongsTo(QuizAttempt, { foreignKey: 'attempt_id', as: 'attempt' });
+
+  QuizQuestion.hasMany(UserAnswer, { foreignKey: 'question_id', as: 'userAnswers' });
+  UserAnswer.belongsTo(QuizQuestion, { foreignKey: 'question_id', as: 'question' });
+
+  // Puzzle associations
+  Puzzle.hasMany(PuzzleCompletion, { foreignKey: 'PUZZLE_ID', as: 'completions' });
+  PuzzleCompletion.belongsTo(Puzzle, { foreignKey: 'PUZZLE_ID', as: 'puzzle' });
+
+  // Leaderboard associations
+  Leaderboard.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  User.hasMany(Leaderboard, { foreignKey: 'user_id', as: 'leaderboards' });
+
+  Leaderboard.belongsTo(Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
+  Quiz.hasMany(Leaderboard, { foreignKey: 'quiz_id', as: 'leaderboards' });
+
+  // WordLegend associations
+  WordLegendUserProgress.belongsTo(WordLegendPuzzle, { foreignKey: 'PUZZLE_ID', as: 'puzzle' });
+  WordLegendUserProgress.belongsTo(User, { foreignKey: 'USER_ID', as: 'user' });
+
+  WordLegendSubmission.belongsTo(WordLegendPuzzle, { foreignKey: 'PUZZLE_ID', as: 'puzzle' });
+  WordLegendSubmission.belongsTo(User, { foreignKey: 'USER_ID', as: 'user' });
+
+  // ==================== Cache models ====================
   models = {
+    sequelize,
+    Puzzle,
+    PuzzleCompletion,
     Quiz,
     QuizQuestion,
     QuizQuestionOption,
     QuizAttempt,
     UserAnswer,
-    sequelize
+    User,
+    Leaderboard,
+    WordLegendPuzzle,
+    WordLegendUserProgress,
+    WordLegendSubmission,
+    Story,
+    StoryMedia,
+    Comment,
   };
 
   return models;
 }
-
-export default models;

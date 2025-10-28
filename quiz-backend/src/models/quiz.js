@@ -2,74 +2,77 @@ export default function(sequelize) {
   const { DataTypes } = sequelize.Sequelize;
 
   const Quiz = sequelize.define('Quiz', {
-    QUIZ_ID: {
+    quiz_id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
       allowNull: false,
       field: 'QUIZ_ID'
     },
-    TITLE: {
+    title: {
       type: DataTypes.STRING(255),
       allowNull: false,
       field: 'TITLE'
     },
-    DESCRIPTION: {
+    description: {
       type: DataTypes.TEXT,
       allowNull: true,
       field: 'DESCRIPTION'
     },
-    CATEGORY: {
+    category: {
       type: DataTypes.STRING(100),
       allowNull: true,
       field: 'CATEGORY'
     },
-    DIFFICULTY: {
+    difficulty: {
       type: DataTypes.STRING(50),
       allowNull: false,
       defaultValue: 'medium',
       field: 'DIFFICULTY'
     },
-    TIME_LIMIT: {
+    time_limit: {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'TIME_LIMIT'
     },
-    XP_REWARD: {
+    xp_reward: {
       type: DataTypes.INTEGER,
       allowNull: true,
       defaultValue: 100,
       field: 'XP_REWARD'
     },
-    CREATED_AT: {
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'IS_ACTIVE'
+    },
+    created_by: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'CREATED_BY'
+    },
+    created_at: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
       field: 'CREATED_AT'
     },
-    UPDATED_AT: {
+    updated_at: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
       field: 'UPDATED_AT'
-    },
-    CREATED_BY: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
-      field: 'CREATED_BY'
-    },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-      field: 'IS_ACTIVE',
     }
   }, {
     tableName: 'QUIZZES',
     timestamps: true,
-    underscored: true,
-    createdAt: 'CREATED_AT',
-    updatedAt: 'UPDATED_AT'
+    paranoid: false,
+    underscored: false,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    // Explicitly tell Sequelize not to use deletedAt
+    deletedAt: false
   });
 
   return Quiz;

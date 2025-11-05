@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { initializeModels } from '../models/index.js';
 
@@ -7,136 +6,142 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 /* ============================================================================
  * AUTHENTICATION CONTROLLERS
- * ============================================================================
- */
+ * ============================================================================ */
 
 /**
- * Register a new user
+ * Register a new user (called from frontend on first login)
  */
 export async function register(req, res, next) {
   try {
     const { User } = await initializeModels();
-    const { USERNAME, EMAIL, PASSWORD, ROLE_ID, DEPARTMENT_ID } = req.body;
 
-    if (!USERNAME || !EMAIL || !PASSWORD) {
+    const {
+      displayName,
+      mail,
+      userPrincipalName,
+      role = 'user',
+      mobilePhone,
+      businessPhones,
+      nickname,
+      department,
+      microsoftId,
+    } = req.body;
+
+    if (!mail || !displayName) {
       return res.status(400).json({
         success: false,
-        message: 'USERNAME, EMAIL, and PASSWORD are required.'
+        message: 'mail and displayName are required.',
       });
     }
 
-    const existingUser = await User.findOne({ where: { EMAIL: EMAIL.toLowerCase() } });
+    // Check duplicates
+    const existingUser = await User.findOne({
+      where: { MAIL: mail.toLowerCase() },
+    });
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: 'Email already exists.'
+        message: 'Email already exists.',
       });
     }
 
-    // Hash password before saving
-    const hashedPassword = await bcrypt.hash(PASSWORD, 10);
+    if (microsoftId) {
+      const existingByMsId = await User.findOne({
+        where: { MICROSOFT_ID: microsoftId },
+      });
+      if (existingByMsId) {
+        return res.status(409).json({
+          success: false,
+          message: 'Microsoft account already linked.',
+        });
+      }
+    }
 
-    const newUser = await User.create({
-      USERNAME,
-      EMAIL: EMAIL.toLowerCase(),
-      PASSWORD: hashedPassword,
-      ROLE_ID: ROLE_ID || 1,
-      DEPARTMENT_ID,
-      STATUS: 'active',
-      EMAIL_VERIFIED: false,
-      CREATED_AT: new Date(),
-    });
+    // Only include defined fields — let DB set CREATED_AT, CREATED_BY
+    const userData = {
+      DISPLAYNAME: displayName,
+      MAIL: mail.toLowerCase(),
+      USERPRINCIPALNAME: userPrincipalName ?? null,
+      ROLE: role,
+      MOBILEPHONE: mobilePhone?.trim() || null,
+      BUSINESSPHONES: businessPhones?.trim() || null,
+      NICKNAME: nickname?.trim() || null,
+      DEPARTMENT: department?.trim() || null,
+      MICROSOFT_ID: microsoftId ?? null,
+      CREATED_BY: mail.toLowerCase(), // ← email as creator
+      // CREATED_AT: DB default SYSDATE
+    };
+
+    const newUser = await User.create(userData);
 
     const token = jwt.sign(
       {
-        userId: newUser.USER_ID,
-        email: newUser.EMAIL,
-        username: newUser.USERNAME,
-        roleId: newUser.ROLE_ID,
+        userId: newUser.ID,
+        mail: newUser.MAIL,
+        displayName: newUser.DISPLAYNAME,
+        role: newUser.ROLE,
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    const userResponse = { ...newUser.toJSON() };
-    delete userResponse.PASSWORD;
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: { user: userResponse, token },
+      data: { user: newUser, token },
     });
   } catch (error) {
-    console.error('Error registering user:', error);
     next(error);
   }
 }
 
 /**
- * Login user
+ * Login user (email or Microsoft ID)
  */
 export async function login(req, res, next) {
   try {
     const { User } = await initializeModels();
-    const { EMAIL, PASSWORD } = req.body;
+    const { mail, microsoftId } = req.body;
 
-    if (!EMAIL || !PASSWORD) {
+    if (!mail && !microsoftId) {
       return res.status(400).json({
         success: false,
-        message: 'EMAIL and PASSWORD are required.'
+        message: 'mail or microsoftId is required.',
       });
     }
 
-    const user = await User.findOne({ where: { EMAIL: EMAIL.toLowerCase() } });
+    const whereClause = mail
+      ? { MAIL: mail.toLowerCase() }
+      : { MICROSOFT_ID: microsoftId };
+
+    const user = await User.findOne({ where: whereClause });
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password.'
+        message: 'Invalid credentials.',
       });
     }
 
-    if (user.STATUS !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Account is not active. Please contact support.'
-      });
-    }
-
-    // Compare input password with hashed password stored in DB
-    const isPasswordValid = await bcrypt.compare(PASSWORD, user.PASSWORD);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password.'
-      });
-    }
-
-    await user.update({
-      LAST_LOGIN: new Date(),
-      UPDATED_AT: new Date(),
-    });
+    // Touch row — DB sets UPDATED_AT via default
+    await user.update({ UPDATED_BY: user.MAIL });
 
     const token = jwt.sign(
       {
-        userId: user.USER_ID,
-        email: user.EMAIL,
-        username: user.USERNAME,
-        roleId: user.ROLE_ID,
+        userId: user.ID,
+        mail: user.MAIL,
+        displayName: user.DISPLAYNAME,
+        role: user.ROLE,
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    const userResponse = { ...user.toJSON() };
-    delete userResponse.PASSWORD;
-
-    res.json({
+    return res.json({
       success: true,
       message: 'Login successful',
-      data: { user: userResponse, token },
+      data: { user, token },
     });
   } catch (error) {
-    console.error('Error logging in:', error);
     next(error);
   }
 }
@@ -154,103 +159,46 @@ export async function getProfile(req, res, next) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const userResponse = { ...user.toJSON() };
-    delete userResponse.PASSWORD;
-
-    res.json({ success: true, data: userResponse });
+    return res.json({ success: true, data: user });
   } catch (error) {
-    console.error('Error fetching profile:', error);
     next(error);
   }
 }
 
 /**
- * Change password
+ * Change password - Not applicable
  */
 export async function changePassword(req, res, next) {
-  try {
-    const { User } = await initializeModels();
-    const { CURRENT_PASSWORD, NEW_PASSWORD } = req.body;
-    const userId = req.user.userId;
-
-    if (!CURRENT_PASSWORD || !NEW_PASSWORD) {
-      return res.status(400).json({
-        success: false,
-        message: 'CURRENT_PASSWORD and NEW_PASSWORD are required.'
-      });
-    }
-
-    if (NEW_PASSWORD.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'New password must be at least 6 characters long.'
-      });
-    }
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(CURRENT_PASSWORD, user.PASSWORD);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect.'
-      });
-    }
-
-    const hashedNewPassword = await bcrypt.hash(NEW_PASSWORD, 10);
-
-    await user.update({
-      PASSWORD: hashedNewPassword,
-      UPDATED_AT: new Date(),
-    });
-
-    res.json({
-      success: true,
-      message: 'Password changed successfully',
-    });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    next(error);
-  }
+  return res.status(400).json({
+    success: false,
+    message: 'Password change not supported for Microsoft-linked accounts.',
+  });
 }
 
 /**
- * Logout
+ * Logout (client-side)
  */
 export async function logout(req, res, next) {
-  try {
-    res.json({
-      success: true,
-      message: 'Logout successful',
-    });
-  } catch (error) {
-    console.error('Error logging out:', error);
-    next(error);
-  }
+  return res.json({ success: true, message: 'Logged out successfully' });
 }
 
 /* ============================================================================
  * USER MANAGEMENT CRUD
- * ============================================================================
- */
+ * ============================================================================ */
 
 export async function createUser(req, res, next) {
-  return register(req, res, next); // reuse register
+  return register(req, res, next);
 }
 
 export async function getAllUsers(req, res, next) {
   try {
     const { User } = await initializeModels();
     const users = await User.findAll({
-      attributes: { exclude: ['PASSWORD'] },
       order: [['CREATED_AT', 'DESC']],
+      attributes: { exclude: ['CREATED_BY', 'UPDATED_BY'] },
     });
-    res.json({ success: true, data: users });
+    return res.json({ success: true, data: users });
   } catch (error) {
-    console.error('Error fetching all users:', error);
     next(error);
   }
 }
@@ -260,61 +208,84 @@ export async function getUserById(req, res, next) {
     const { User } = await initializeModels();
     const { id } = req.params;
 
-    const user = await User.findByPk(id, {
-      attributes: { exclude: ['PASSWORD'] },
+    const user = await User.findOne({
+      where: { MICROSOFT_ID: id }, // Query by MICROSOFT_ID instead of ID
     });
+
+    console.log(user)
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    res.json({ success: true, data: user });
+    return res.json({ success: true, data: user });
   } catch (error) {
-    console.error('Error fetching user:', error);
     next(error);
   }
 }
 
+/**
+ * Update user - safe for Oracle
+ */
 export async function updateUser(req, res, next) {
   try {
     const { User } = await initializeModels();
     const { id } = req.params;
-    const { USERNAME, EMAIL, PASSWORD, ROLE_ID, DEPARTMENT_ID, STATUS } = req.body;
+
+    const {
+      displayName,
+      mail,
+      userPrincipalName,
+      role,
+      mobilePhone,
+      businessPhones,
+      nickname,
+      department,
+    } = req.body;
 
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    let hashedPassword = user.PASSWORD;
-    if (PASSWORD) {
-      hashedPassword = await bcrypt.hash(PASSWORD, 10);
+    if (mail && mail.toLowerCase() !== user.MAIL) {
+      const existing = await User.findOne({ where: { MAIL: mail.toLowerCase() } });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: 'Email already in use by another account.',
+        });
+      }
     }
 
-    await user.update({
-      USERNAME: USERNAME || user.USERNAME,
-      EMAIL: EMAIL ? EMAIL.toLowerCase() : user.EMAIL,
-      PASSWORD: hashedPassword,
-      ROLE_ID: ROLE_ID || user.ROLE_ID,
-      DEPARTMENT_ID: DEPARTMENT_ID || user.DEPARTMENT_ID,
-      STATUS: STATUS || user.STATUS,
-      UPDATED_AT: new Date(),
-    });
+    const updateData = {
+      UPDATED_BY: user.MAIL // ← email as updater
+    };
 
-    const updatedUser = { ...user.toJSON() };
-    delete updatedUser.PASSWORD;
+    if (displayName !== undefined) updateData.DISPLAYNAME = displayName;
+    if (mail !== undefined) updateData.MAIL = mail.toLowerCase();
+    if (userPrincipalName !== undefined) updateData.USERPRINCIPALNAME = userPrincipalName;
+    if (role !== undefined) updateData.ROLE = role;
+    if (mobilePhone !== undefined) updateData.MOBILEPHONE = mobilePhone?.trim() || null;
+    if (businessPhones !== undefined) updateData.BUSINESSPHONES = businessPhones?.trim() || null;
+    if (nickname !== undefined) updateData.NICKNAME = nickname?.trim() || null;
+    if (department !== undefined) updateData.DEPARTMENT = department?.trim() || null;
 
-    res.json({
+    await user.update(updateData);
+
+    return res.json({
       success: true,
       message: 'User updated successfully',
-      data: updatedUser,
+      data: user,
     });
   } catch (error) {
-    console.error('Error updating user:', error);
     next(error);
   }
 }
 
+/**
+ * Delete user
+ */
 export async function deleteUser(req, res, next) {
   try {
     const { User } = await initializeModels();
@@ -327,12 +298,11 @@ export async function deleteUser(req, res, next) {
 
     await user.destroy();
 
-    res.json({
+    return res.json({
       success: true,
       message: 'User deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
     next(error);
   }
 }

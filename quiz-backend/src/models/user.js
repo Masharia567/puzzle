@@ -2,92 +2,103 @@
 export default (sequelize) => {
   const { DataTypes } = sequelize.Sequelize;
 
-  const User = sequelize.define('User', {
-    ID: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-      allowNull: false,
-      field: 'ID'
-    },
-    USERNAME: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true,
-      field: 'USERNAME'
-    },
-    EMAIL: {
-      type: DataTypes.STRING(150),
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true
+  const User = sequelize.define(
+    'User',
+    {
+      ID: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+        allowNull: false,
+        field: 'ID',
       },
-      field: 'EMAIL'
+      DISPLAYNAME: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'DISPLAYNAME',
+      },
+      MAIL: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        unique: true,
+        validate: { isEmail: true },
+        field: 'MAIL',
+      },
+      USERPRINCIPALNAME: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        unique: true,
+        field: 'USERPRINCIPALNAME',
+      },
+      ROLE: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        defaultValue: 'user', // ← string, safe
+        field: 'ROLE',
+      },
+      MOBILEPHONE: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'MOBILEPHONE',
+      },
+      BUSINESSPHONES: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'BUSINESSPHONES',
+      },
+      NICKNAME: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'NICKNAME',
+      },
+      DEPARTMENT: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'DEPARTMENT',
+      },
+      MICROSOFT_ID: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        unique: true,
+        field: 'MICROSOFT_ID',
+        comment: 'Microsoft Graph User ID (UUID)',
+      },
+      CREATED_AT: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'CREATED_AT',
+        // REMOVED: defaultValue: DataTypes.NOW → let DB use DEFAULT SYSDATE
+      },
+      UPDATED_AT: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'UPDATED_AT',
+        // REMOVED: defaultValue: DataTypes.NOW
+      },
+      CREATED_BY: {
+        type: DataTypes.STRING(100), // ← VARCHAR2 in DB, NOT INTEGER
+        allowNull: true,
+        field: 'CREATED_BY',
+      },
+      UPDATED_BY: {
+        type: DataTypes.STRING(100), // ← VARCHAR2 in DB
+        allowNull: true,
+        field: 'UPDATED_BY',
+      },
+      // REMOVED: DEPARTMENT_ID → not in your new schema
     },
-    PASSWORD: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      field: 'PASSWORD'
-    },
-    ROLE_ID: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'ROLE_ID'
-    },
-    DEPARTMENT_ID: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'DEPARTMENT_ID'
-    },
-    STATUS: {
-      type: DataTypes.ENUM('active', 'inactive', 'suspended'),
-      allowNull: false,
-      defaultValue: 'active',
-      field: 'STATUS'
-    },
-    EMAIL_VERIFIED: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-      field: 'EMAIL_VERIFIED'
-    },
-    LASTLOGIN: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      field: 'LAST_LOGIN'
-    },
-    CREATED_AT: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-      field: 'CREATED_AT'
-    },
-    UPDATED_AT: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      field: 'UPDATED_AT'
-    },
-    CREATED_BY: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'CREATED_BY'
-    },
-    UPDATED_BY: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'UPDATED_BY'
+    {
+      tableName: 'USERS',
+      timestamps: false,
+      underscored: true,
+      indexes: [],
     }
-  }, {
-    tableName: 'USERS',
-    timestamps: false, // Disable default timestamps since we define them manually
-    underscored: true
-  });
+  );
 
-  // Define associations here if needed (example placeholders)
+  // Associations
   User.associate = (models) => {
-    User.belongsTo(models.Role, { foreignKey: 'ROLE_ID', as: 'role' });
-    User.belongsTo(models.Department, { foreignKey: 'DEPARTMENT_ID', as: 'department' });
+    // Removed DEPARTMENT_ID → no belongsTo
+    // If you add it later, re-enable
   };
 
   return User;

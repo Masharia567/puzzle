@@ -1,11 +1,13 @@
-export default function(sequelize) {
+export default function (sequelize) {
   const { DataTypes } = sequelize.Sequelize;
-  
+
   const QuizAttempt = sequelize.define('QuizAttempt', {
     attempt_id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
-      autoIncrement: true,
+      allowNull: true,
+       autoIncrement: true, 
+       // ✅ allow NULL — Oracle trigger fills it
       field: 'ATTEMPT_ID'
     },
     quiz_id: {
@@ -20,11 +22,16 @@ export default function(sequelize) {
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'USER_ID'
+      field: 'USER_ID',
+      references: {
+        model: 'USERS',
+        key: 'USER_ID'
+      }
     },
     score: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      defaultValue: 0,
       field: 'SCORE'
     },
     total_points: {
@@ -32,16 +39,31 @@ export default function(sequelize) {
       allowNull: true,
       field: 'TOTAL_POINTS'
     },
-    time_taken: {
-      type: DataTypes.INTEGER,
+    percentage: {
+      type: DataTypes.DECIMAL(5, 2),
       allowNull: true,
-      comment: 'Time taken in seconds',
-      field: 'TIME_TAKEN'
+      field: 'PERCENTAGE'
+    },
+    status: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: 'in_progress',
+      field: 'STATUS'
+    },
+    started_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'STARTED_AT'
     },
     completed_at: {
       type: DataTypes.DATE,
       allowNull: true,
       field: 'COMPLETED_AT'
+    },
+    time_taken: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'TIME_TAKEN'
     }
   }, {
     tableName: 'QUIZ_ATTEMPTS',

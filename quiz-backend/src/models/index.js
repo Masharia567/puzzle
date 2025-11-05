@@ -23,6 +23,10 @@ import LeaderboardModel from './Leaderboard.js';
 import StoryModel from './Story.js';
 import StoryMediaModel from './StoryMedia.js';
 import CommentModel from './Comment.js';
+import LeagueModel from './League.js';
+import LeagueMemberModel from './LeagueMember.js';
+import LeagueGameModel from './LeagueGame.js';
+import LeagueGameParticipantModel from './LeagueGameParticipant.js';
 
 let models = null;
 
@@ -47,9 +51,13 @@ export async function initializeModels() {
   const WordLegendPuzzle = WordLegendPuzzleModel(sequelize);
   const WordLegendUserProgress = WordLegendUserProgressModel(sequelize);
   const WordLegendSubmission = WordLegendSubmissionModel(sequelize);
-   const Story = StoryModel(sequelize);
-   const StoryMedia = StoryMediaModel(sequelize);
-   const Comment = CommentModel(sequelize);
+  const Story = StoryModel(sequelize);
+  const StoryMedia = StoryMediaModel(sequelize);
+  const Comment = CommentModel(sequelize);
+  const League = LeagueModel(sequelize);
+  const LeagueMember = LeagueMemberModel(sequelize);
+  const LeagueGame = LeagueGameModel(sequelize);
+  const LeagueGameParticipant = LeagueGameParticipantModel(sequelize);
 
   // ==================== Associations ====================
 
@@ -86,6 +94,14 @@ export async function initializeModels() {
 
   WordLegendSubmission.belongsTo(WordLegendPuzzle, { foreignKey: 'PUZZLE_ID', as: 'puzzle' });
   WordLegendSubmission.belongsTo(User, { foreignKey: 'USER_ID', as: 'user' });
+  League.associate({ User, LeagueMember });
+  LeagueMember.associate({ League, User });
+
+  //story associations
+  Story.hasMany(Comment, { foreignKey: 'STORY_ID', as: 'comments' });
+  Comment.belongsTo(Story, { foreignKey: 'STORY_ID', as: 'story' });
+  Comment.belongsTo(User, { foreignKey: 'USER_ID', as: 'user' });
+  Comment.hasMany(Comment, { foreignKey: 'PARENT_COMMENT_ID', as: 'replies' });
 
   // ==================== Cache models ====================
   models = {
@@ -105,6 +121,10 @@ export async function initializeModels() {
     Story,
     StoryMedia,
     Comment,
+    League,
+    LeagueMember,
+    LeagueGame,
+    LeagueGameParticipant
   };
 
   return models;

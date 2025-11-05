@@ -36,7 +36,8 @@ async function initializeSequelize() {
     });
 
     sequelize = new Sequelize({
-      dialect: 'oracle',
+     // dialect: 'oracle',
+     dialect: 'oracle',
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       host: process.env.DB_HOST,
@@ -66,6 +67,7 @@ async function initializeSequelize() {
     // Test the connection
     console.log('\n⏳ Testing database connection...');
     await sequelize.authenticate();
+    
     console.log('✅ Connection to the Oracle database has been established successfully.');
 
     return sequelize;

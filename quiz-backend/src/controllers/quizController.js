@@ -273,6 +273,8 @@ function transformQuiz(quizJson) {
       isCorrect: ans.is_correct,
       pointsEarned: ans.points_earned
     }));
+    
+
 
     return {
       userId: attempt.user_id,
@@ -442,8 +444,22 @@ export async function updateQuizStatus(req, res, next) {
 export async function startQuizAttempt(req, res, next) {
   try {
     const models = await initializeModels();
-    const { QuizAttempt, Quiz, QuizQuestion } = models;
+    const { QuizAttempt, Quiz, QuizQuestion, User } = models;
     const { quizId, userId } = req.body;
+
+    // Find user by MICROSOFT_ID
+    const user = await User.findOne({
+      where: { MICROSOFT_ID: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const dbUserId = user.ID;
 
     const quiz = await Quiz.findByPk(quizId, {
       include: [
@@ -467,7 +483,7 @@ export async function startQuizAttempt(req, res, next) {
 
     const attempt = await QuizAttempt.create({
       quiz_id: quizIdPk,
-      user_id: userId,
+      user_id: dbUserId, // Use database ID
       total_points: totalPoints,
       status: 'in_progress',
       started_at: new Date()
@@ -529,6 +545,162 @@ export async function submitAnswer(req, res, next) {
   }
 }
 
+// Bulk submit all quiz answers at once
+export async function submitQuizAnswers(req, res, next) {
+  try {
+    const models = await initializeModels();
+    const { QuizAttempt, UserAnswer, QuizQuestion, Quiz, User } = models;
+    const { id } = req.params; // quiz ID
+    const { userId, answers } = req.body; // userId is Azure AD localAccountId
+
+    console.log('=== BULK SUBMIT DEBUG ===');
+    console.log('Quiz ID:', id);
+    console.log('User ID (Azure/MICROSOFT_ID):', userId);
+    console.log('Answers received:', answers?.length || 0);
+
+    // Validate input
+    if (!userId || !answers || !Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID and answers array are required'
+      });
+    }
+
+    // UPDATED: Find user by MICROSOFT_ID
+    let user = await User.findOne({
+      where: { MICROSOFT_ID: userId }
+    });
+
+    // If user doesn't exist, return error
+    if (!user) {
+      console.error('User not found with MICROSOFT_ID:', userId);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found. Please ensure you are registered in the system.'
+      });
+    }
+
+    const dbUserId = user.ID; // Get the database ID (primary key)
+    console.log('Database User ID:', dbUserId);
+    console.log('User Email:', user.MAIL);
+    console.log('User Display Name:', user.DISPLAYNAME);
+
+    // Get quiz with questions
+    const quiz = await Quiz.findByPk(id, {
+      include: [
+        {
+          model: QuizQuestion,
+          as: 'questions',
+          attributes: ['question_id', 'points', 'correct_answer']
+        }
+      ]
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz not found'
+      });
+    }
+
+    console.log('Quiz found:', quiz.title);
+    console.log('Questions in quiz:', quiz.questions.length);
+
+    // Calculate total points
+    const totalPoints = quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0);
+
+    // UPDATED: Create quiz attempt with database user ID
+    const attempt = await QuizAttempt.create({
+      quiz_id: quiz.quiz_id,
+      user_id: dbUserId, // Use the database ID, not Azure ID
+      total_points: totalPoints,
+      status: 'in_progress',
+      started_at: new Date()
+    });
+
+    console.log('Created attempt ID:', attempt.attempt_id);
+
+    let score = 0;
+    const savedAnswers = [];
+
+    // Process each answer
+    for (const answerData of answers) {
+      const { question_id, answer } = answerData;
+      
+      // Find the question
+      const question = quiz.questions.find(q => q.question_id === question_id);
+      
+      if (!question) {
+        console.warn(`Question ${question_id} not found in quiz`);
+        continue;
+      }
+
+      const userAnswerText = (answer || '').toString().trim();
+      const correctAnswer = (question.correct_answer || '').toString().trim();
+      const points = question.points || 10;
+
+      // Check if correct (case-insensitive)
+      const isCorrect = correctAnswer.toLowerCase() === userAnswerText.toLowerCase();
+      const pointsEarned = isCorrect ? points : 0;
+      
+      score += pointsEarned;
+
+      // Save answer to USER_ANSWERS table
+      const savedAnswer = await UserAnswer.create({
+        attempt_id: attempt.attempt_id,
+        question_id: question_id,
+        user_answer: userAnswerText,
+        is_correct: isCorrect,
+        points_earned: pointsEarned,
+        answered_at: new Date()
+      });
+
+      savedAnswers.push(savedAnswer);
+      console.log(`Question ${question_id}: ${isCorrect ? 'Correct' : 'Incorrect'} (${pointsEarned}/${points} points)`);
+    }
+
+    // Calculate percentage
+    const percentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
+
+    // Complete the attempt
+    await attempt.update({
+      score,
+      percentage: percentage.toFixed(2),
+      completed_at: new Date(),
+      time_taken: 0, // Frontend doesn't track time
+      status: 'completed'
+    });
+
+    console.log('=== SUBMISSION COMPLETE ===');
+    console.log('Final score:', score, '/', totalPoints);
+    console.log('Percentage:', percentage.toFixed(2) + '%');
+    console.log('Answers saved:', savedAnswers.length);
+
+    res.status(201).json({
+      success: true,
+      message: 'Quiz submitted successfully',
+      data: {
+        attemptId: attempt.attempt_id,
+        score,
+        totalPoints,
+        percentage: percentage.toFixed(2),
+        answersSubmitted: savedAnswers.length
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting quiz answers:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Return more helpful error message
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit quiz',
+      error: error.message
+    });
+  }
+}
+
 // Complete quiz attempt
 export async function completeQuizAttempt(req, res, next) {
   try {
@@ -587,11 +759,25 @@ export async function completeQuizAttempt(req, res, next) {
 export async function getUserAttempts(req, res, next) {
   try {
     const models = await initializeModels();
-    const { QuizAttempt, Quiz, UserAnswer } = models;
-    const { userId } = req.params;
+    const { QuizAttempt, Quiz, UserAnswer, User } = models;
+    const { userId } = req.params; // This is MICROSOFT_ID
+
+    // Find user by MICROSOFT_ID
+    const user = await User.findOne({
+      where: { MICROSOFT_ID: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const dbUserId = user.ID;
 
     const attempts = await QuizAttempt.findAll({
-      where: { user_id: userId },
+      where: { user_id: dbUserId },
       include: [
         {
           model: Quiz,
@@ -617,7 +803,7 @@ export async function getUserAttempts(req, res, next) {
 
       return {
         userId: attemptJson.user_id,
-        username: attemptJson.username || `User ${attemptJson.user_id}`,
+        username: user.DISPLAYNAME || user.MAIL || `User ${attemptJson.user_id}`,
         score: attemptJson.score || 0,
         maxScore: attemptJson.total_points || 0,
         submittedAt: attemptJson.completed_at || attemptJson.started_at,

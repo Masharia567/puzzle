@@ -1,5 +1,7 @@
+// models/Story.js
 export default function (sequelize) {
   const { DataTypes } = sequelize.Sequelize;
+
   const Story = sequelize.define('Story', {
     STORY_ID: {
       type: DataTypes.INTEGER,
@@ -22,16 +24,6 @@ export default function (sequelize) {
       allowNull: false,
       field: 'CONTENT'
     },
-    MEDIA_URL: {
-      type: DataTypes.STRING(500),
-      allowNull: true,
-      field: 'MEDIA_URL'
-    },
-    MEDIA_TYPE: {
-      type: DataTypes.STRING(50),
-      allowNull: true,
-      field: 'MEDIA_TYPE'
-    },
     STATUS: {
       type: DataTypes.STRING(20),
       defaultValue: 'active',
@@ -53,15 +45,20 @@ export default function (sequelize) {
       allowNull: false,
       defaultValue: DataTypes.NOW,
       field: 'UPDATED_AT'
-    }
+    },
+    LIKES_COUNT: {
+  type: DataTypes.INTEGER,
+  defaultValue: 0,
+  field: 'LIKES_COUNT'
+},
   }, {
     tableName: 'STORIES',
     timestamps: false,
     freezeTableName: true
   });
 
+  // Only keep the Comment association
   Story.associate = (models) => {
-    Story.hasMany(models.StoryMedia, { foreignKey: 'STORY_ID', as: 'media' });
     Story.hasMany(models.Comment, { foreignKey: 'STORY_ID', as: 'comments' });
   };
 

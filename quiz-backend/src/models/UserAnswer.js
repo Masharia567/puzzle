@@ -41,6 +41,11 @@ export default function(sequelize) {
       allowNull: true,
       defaultValue: 0,
       field: 'POINTS_EARNED'
+    },
+    answered_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'ANSWERED_AT'
     }
   }, {
     tableName: 'USER_ANSWERS',

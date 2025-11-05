@@ -7,12 +7,14 @@ import quizRoutes from './src/routes/quizRoutes.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
 import puzzleRoutes from './src/routes/puzzleRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
-import leaderboardRoutes from './src/routes/leaderboardRoutes.js';
+import leagueRoutes from './src/routes/leagueRoutes.js';
 import adminGameRoutes from "./src/routes/adminGameRoutes.js";
 import gameRoutes from "./src/routes/gameRoutes.js";
 import StoryRoutes from './src/routes/storyRoutes.js';
 import CommentRoutes from './src/routes/commentRoutes.js';
-import StoryMediaRoutes from './src/routes/storyMediaRoutes.js';
+
+import authRoutes from './src/routes/authRoutes.js';
+
 
 dotenv.config();
 
@@ -27,15 +29,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use('/api', quizRoutes);
 app.use('/api/puzzles', puzzleRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api', leaderboardRoutes);
+app.use('/api/league', leagueRoutes);
 // Routes
 app.use("/api/admin/", adminGameRoutes);     // Admin routes
 app.use("/api/", gameRoutes); 
 app.use("/api/", StoryRoutes); 
-app.use("/api/", StoryMediaRoutes); 
+
 app.use("/api/", CommentRoutes); 
 
 // Health check
@@ -53,10 +56,10 @@ async function startServer() {
     await db.initialize();
     
     console.log('📦 Initializing models...');
-    await initializeModels();
+   const models= await initializeModels();
     
     console.log('✅ Models initialized successfully');
-    // REMOVED: await models.sequelize.sync({ alter: true });
+    //  await models.sequelize.sync({ alter: true });
     // Don't sync - your tables already exist!
 
     app.listen(PORT, () => {

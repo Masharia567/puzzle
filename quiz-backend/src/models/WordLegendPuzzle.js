@@ -88,6 +88,7 @@ export default function (sequelize) {
       underscored: true,
       createdAt: "CREATED_AT",
       updatedAt: "UPDATED_AT",
+      paranoid: false,  // ← THIS FIXES ORA-00904
       indexes: [
         { fields: ["CATEGORY"] },
         { fields: ["DIFFICULTY"] },
@@ -122,7 +123,6 @@ export default function (sequelize) {
 
   // Associations
   WordLegendPuzzle.associate = function (models) {
-    // Association with User (creator)
     if (models.User) {
       WordLegendPuzzle.belongsTo(models.User, {
         foreignKey: 'CREATED_BY',
@@ -130,7 +130,6 @@ export default function (sequelize) {
       });
     }
 
-    // Association with UserProgress
     if (models.WordLegendUserProgress) {
       WordLegendPuzzle.hasMany(models.WordLegendUserProgress, {
         foreignKey: 'PUZZLE_ID',
@@ -138,7 +137,6 @@ export default function (sequelize) {
       });
     }
 
-    // Association with Submissions
     if (models.WordLegendSubmission) {
       WordLegendPuzzle.hasMany(models.WordLegendSubmission, {
         foreignKey: 'PUZZLE_ID',

@@ -8,7 +8,7 @@ let Story, Comment, User;
 async function getModels() {
   if (!Story) {
     const models = await initializeModels();
-    Story = models.Story;
+    Story = models.Story;z
     Comment = models.Comment;
     User = models.User;
   }
@@ -506,6 +506,7 @@ export const createCommentForStory = async (req, res) => {
   }
 };
 
+
 /**
  * GET /stories/:id/comments
  * Get all comments for a specific story (with nested replies)
@@ -605,6 +606,7 @@ export const unlikeStory = async (req, res) => {
         });
       }
     }
+    
 
     await story.update({
       LIKES_COUNT: Sequelize.literal('GREATEST(0, LIKES_COUNT - 1)')
@@ -621,5 +623,8 @@ export const unlikeStory = async (req, res) => {
       success: false,
       error: error.message
     });
+    
   }
+  
 };
+

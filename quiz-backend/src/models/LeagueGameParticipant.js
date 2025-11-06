@@ -75,4 +75,5 @@ export default function (sequelize) {
       foreignKey: 'user_id',
       as: 'user'
     });
-  };}
+  };
+}

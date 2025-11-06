@@ -50,7 +50,8 @@ export default function(sequelize) {
   }, {
     tableName: 'USER_ANSWERS',
     timestamps: false,
-    underscored: true
+    underscored: false,  // ← CHANGED FROM true TO false
+    freezeTableName: true
   });
 
   return UserAnswer;

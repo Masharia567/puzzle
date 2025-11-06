@@ -6,8 +6,7 @@ export default function (sequelize) {
       type: DataTypes.INTEGER,
       primaryKey: true,
       allowNull: true,
-       autoIncrement: true, 
-       // ✅ allow NULL — Oracle trigger fills it
+      autoIncrement: true,
       field: 'ATTEMPT_ID'
     },
     quiz_id: {
@@ -68,7 +67,8 @@ export default function (sequelize) {
   }, {
     tableName: 'QUIZ_ATTEMPTS',
     timestamps: false,
-    underscored: true
+    underscored: false, // ← CHANGED FROM true TO false
+    freezeTableName: true
   });
 
   return QuizAttempt;

@@ -14,6 +14,7 @@ import StoryRoutes from './src/routes/storyRoutes.js';
 import CommentRoutes from './src/routes/commentRoutes.js';
 
 import authRoutes from './src/routes/authRoutes.js';
+import wordSearchRoutes from './src/routes/wordSearchRoutes.js';
 
 
 dotenv.config();
@@ -40,6 +41,7 @@ app.use("/api/", gameRoutes);
 app.use("/api/", StoryRoutes); 
 
 app.use("/api/", CommentRoutes); 
+app.use('/api/', wordSearchRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

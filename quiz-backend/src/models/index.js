@@ -27,6 +27,8 @@ import LeagueModel from './League.js';
 import LeagueMemberModel from './LeagueMember.js';
 import LeagueGameModel from './LeagueGame.js';
 import LeagueGameParticipantModel from './LeagueGameParticipant.js';
+import WordSearch from './WordSearch.js';
+import  WordSearchCompletionModel  from './WordSearchCompletion.js';
 
 let models = null;
 
@@ -58,6 +60,8 @@ export async function initializeModels() {
   const LeagueMember = LeagueMemberModel(sequelize);
   const LeagueGame = LeagueGameModel(sequelize);
   const LeagueGameParticipant = LeagueGameParticipantModel(sequelize);
+  const WordSearchCompletion = WordSearchCompletionModel(sequelize);
+  const WordSearchModel = WordSearch(sequelize);
 
   // ==================== Associations ====================
 
@@ -71,11 +75,11 @@ export async function initializeModels() {
   Quiz.hasMany(QuizAttempt, { foreignKey: 'quiz_id', as: 'attempts' });
   QuizAttempt.belongsTo(Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
 
-  QuizAttempt.hasMany(UserAnswer, { foreignKey: 'attempt_id', as: 'answers', onDelete: 'CASCADE' });
-  UserAnswer.belongsTo(QuizAttempt, { foreignKey: 'attempt_id', as: 'attempt' });
+QuizAttempt.hasMany(UserAnswer, { foreignKey: 'ATTEMPT_ID', as: 'answers', onDelete: 'CASCADE' });
+UserAnswer.belongsTo(QuizAttempt, { foreignKey: 'ATTEMPT_ID', as: 'attempt' })
 
-  QuizQuestion.hasMany(UserAnswer, { foreignKey: 'question_id', as: 'userAnswers' });
-  UserAnswer.belongsTo(QuizQuestion, { foreignKey: 'question_id', as: 'question' });
+  QuizQuestion.hasMany(UserAnswer, { foreignKey: 'QUESTION_ID', as: 'userAnswers' });
+UserAnswer.belongsTo(QuizQuestion, { foreignKey: 'QUESTION_ID', as: 'question' });
 
   // Puzzle associations
   Puzzle.hasMany(PuzzleCompletion, { foreignKey: 'PUZZLE_ID', as: 'completions' });
@@ -124,7 +128,9 @@ export async function initializeModels() {
     League,
     LeagueMember,
     LeagueGame,
-    LeagueGameParticipant
+    LeagueGameParticipant,
+    WordSearchCompletion,
+    WordSearchModel,
   };
 
   return models;

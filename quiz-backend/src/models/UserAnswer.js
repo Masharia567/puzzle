@@ -1,6 +1,7 @@
-export default function(sequelize) {
-  const { DataTypes } = sequelize.Sequelize;
-  
+// models/UserAnswer.js
+import { DataTypes } from 'sequelize';
+
+export default (sequelize) => {
   const UserAnswer = sequelize.define('UserAnswer', {
     answer_id: {
       type: DataTypes.INTEGER,
@@ -11,30 +12,29 @@ export default function(sequelize) {
     attempt_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'ATTEMPT_ID',
-      references: {
-        model: 'QUIZ_ATTEMPTS',
-        key: 'ATTEMPT_ID'
-      }
+      field: 'ATTEMPT_ID'
     },
     question_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'QUESTION_ID',
-      references: {
-        model: 'QUIZ_QUESTIONS',
-        key: 'QUESTION_ID'
-      }
+      field: 'QUESTION_ID'
     },
     user_answer: {
       type: DataTypes.STRING(500),
-      allowNull: false,
+      allowNull: true,
       field: 'USER_ANSWER'
     },
     is_correct: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER,  // NUMBER(1)
       allowNull: true,
-      field: 'IS_CORRECT'
+      field: 'IS_CORRECT',
+      get() {
+        const val = this.getDataValue('is_correct');
+        return val === null ? null : val === 1;
+      },
+      set(val) {
+        this.setDataValue('is_correct', val === null ? null : (val ? 1 : 0));
+      }
     },
     points_earned: {
       type: DataTypes.INTEGER,
@@ -43,16 +43,17 @@ export default function(sequelize) {
       field: 'POINTS_EARNED'
     },
     answered_at: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATE(6),  // TIMESTAMP(6)
       allowNull: true,
       field: 'ANSWERED_AT'
     }
   }, {
     tableName: 'USER_ANSWERS',
+    schema: 'FUNZONE',
     timestamps: false,
-    underscored: false,  // ← CHANGED FROM true TO false
-    freezeTableName: true
+    freezeTableName: true,
+    underscored: false
   });
 
   return UserAnswer;
-}
+};

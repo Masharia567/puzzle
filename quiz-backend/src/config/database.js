@@ -43,8 +43,9 @@ async function initializeSequelize() {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
       database: process.env.DB_NAME,
+      
       // logging: env === 'development' ? console.log : false,
-      logging: false,
+      logging: true,
       define: {
         schema: process.env.DB_USER.toUpperCase(), // Ensure uppercase for Oracle
         freezeTableName: true,
@@ -58,7 +59,7 @@ async function initializeSequelize() {
       },
       pool: {
         max: 5,
-        min: 0,
+        min: 0, 
         acquire: 30000,
         idle: 10000
       },

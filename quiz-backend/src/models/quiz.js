@@ -47,6 +47,12 @@ export default function(sequelize) {
       defaultValue: true,
       field: 'IS_ACTIVE'
     },
+    is_published: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'IS_PUBLISHED'
+    },
     created_by: {
       type: DataTypes.STRING(100),
       allowNull: true,

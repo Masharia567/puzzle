@@ -16,21 +16,22 @@ import {
 const router = express.Router();
 
 // Puzzle Management Routes
-router.get('/wordsearch', getAllPuzzles);                    // Get all puzzles
-router.get('/wordsearch/:id', getPuzzleById);                // Get single puzzle
-router.post('/wordsearch', createPuzzle);                    // Create new puzzle
-router.put('/wordsearch/:id', updatePuzzle);                 // Update puzzle
-router.delete('/wordsearch/:id', deletePuzzle);              // Delete puzzle
-router.patch('/wordsearch/:id/publish', togglePublish);      // Toggle publish status
+router.get('/wordsearch', getAllPuzzles);
+router.get('/wordsearch/:id', getPuzzleById);
+router.post('/wordsearch', createPuzzle);
+router.put('/wordsearch/:id', updatePuzzle);
+router.delete('/wordsearch/:id', deletePuzzle);
+router.patch('/wordsearch/:id/publish', togglePublish);
 
 // Game Play Routes
-router.post('/wordsearch/start', startPuzzle);               // Start puzzle attempt
-router.put('/completions/:completionId', submitCompletion); // Submit/update completion
+router.post('/wordsearch/start', startPuzzle);
+router.post('/completions', startPuzzle); // ✨ ADD THIS ALIAS
+router.put('/completions/:completionId', submitCompletion);
 
 // User Progress Routes
-router.get('/users/:userId/completions', getUserCompletions); // Get user's completions
+router.get('/users/:userId/completions', getUserCompletions);
 
 // Statistics Routes
-router.get('/puzzles/:id/stats', getPuzzleStats);         // Get puzzle statistics
+router.get('/puzzles/:id/stats', getPuzzleStats);
 
 export default router;

@@ -1,5 +1,64 @@
 import { initializeModels } from '../models/index.js';
 
+// Helper function to transform quiz data to frontend format
+function transformQuiz(quizJson) {
+  const transformedQuestions = (quizJson.questions || []).map(q => {
+    const questionType = q.question_type;
+    const frontendType = questionType === 'multiple_choice' ? 'multiple_choice' :
+                        questionType === 'true_false' ? 'true_false' :
+                        questionType === 'short_answer' ? 'open_ended' :
+                        questionType;
+
+    return {
+      id: q.question_id,
+      question_id: q.question_id,
+      text: q.question_text || '',
+      type: frontendType,
+      options: q.options?.map(opt => opt.option_text).filter(Boolean) || [],
+      correctAnswer: q.correct_answer || '',
+      points: q.points || 10
+    };
+  });
+
+  const transformedAttempts = (quizJson.attempts || []).map(attempt => {
+    const attemptAnswers = (attempt.answers || []).map(ans => ({
+      questionId: ans.question_id,
+      submittedAnswer: ans.user_answer,
+      isCorrect: ans.is_correct,
+      pointsEarned: ans.points_earned
+    }));
+    
+    return {
+      userId: attempt.user_id,
+      username: attempt.username || `User ${attempt.user_id}`,
+      score: attempt.score || 0,
+      maxScore: attempt.total_points || 0,
+      submittedAt: attempt.completed_at || attempt.started_at,
+      answers: attemptAnswers
+    };
+  }).filter(attempt => attempt.submittedAt);
+
+  return {
+    id: quizJson.quiz_id,
+    _id: quizJson.quiz_id,
+    title: quizJson.title || '',
+    description: quizJson.description || '',
+    difficulty: (quizJson.difficulty || 'medium').toLowerCase(),
+    category: quizJson.category || null,
+    timeLimit: quizJson.time_limit || null,
+    xpReward: quizJson.xp_reward || 100,
+    isActive: quizJson.is_active ?? true,
+    is_published: quizJson.is_published ?? false,
+    createdAt: quizJson.created_at,
+    updatedAt: quizJson.updated_at,
+    createdBy: quizJson.created_by || null,
+    deletedAt: null,
+    questions: transformedQuestions,
+    questionCount: transformedQuestions.length,
+    attempts: transformedAttempts
+  };
+}
+
 // Create a new quiz with questions
 export async function createQuiz(req, res, next) {
   try {
@@ -17,7 +76,6 @@ export async function createQuiz(req, res, next) {
       status
     } = req.body;
 
-    // Validate required fields
     if (!title || !questions || questions.length === 0) {
       return res.status(400).json({
         success: false,
@@ -25,66 +83,48 @@ export async function createQuiz(req, res, next) {
       });
     }
 
-    // Determine isActive based on status, default to true
     const isActive = status === 'inactive' ? false : true;
 
-    // Create quiz
     const quiz = await Quiz.create({
       title,
       description,
       category,
-      difficulty: difficulty || 'none',
+      difficulty: difficulty || 'medium',
       time_limit: timeLimit,
       xp_reward: xpReward || 100,
       is_active: isActive,
+      is_published: false,
       created_at: new Date(),
       updated_at: new Date()
     });
 
     const quizId = quiz.quiz_id;
-
     console.log('Created quiz with ID:', quizId);
 
-    // Create questions and options
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
 
-      // Convert frontend type to backend type
-      const questionType = q.type === 'multiple-choice' ? 'multiple_choice' : 
-                          q.type === 'yes-true' ? 'true_false' :
+      const questionType = q.type === 'multiple_choice' ? 'multiple_choice' : 
+                          q.type === 'true_false' ? 'true_false' :
                           q.type === 'open_ended' ? 'short_answer' :
                           q.type;
 
-      // For open-ended questions, use empty string as placeholder since DB doesn't allow null
-      // Ensure we ALWAYS have a string value, never null or undefined
       let correctAnswer = '';
       if (q.correctAnswer && q.correctAnswer.trim() !== '') {
         correctAnswer = q.correctAnswer.trim();
-      } else if (questionType !== 'short_answer') {
-        // Non-open-ended questions should have an answer
-        correctAnswer = q.correctAnswer || '';
       }
-      // For short_answer, correctAnswer stays empty string
-
-      console.log(`Creating question ${i + 1}:`, {
-        type: questionType,
-        text: q.text.substring(0, 50),
-        correctAnswer: correctAnswer === '' ? '(empty string)' : correctAnswer
-      });
 
       const question = await QuizQuestion.create({
         quiz_id: quizId,
         question_text: q.text,
         question_type: questionType,
         points: q.points || 10,
-        correct_answer: correctAnswer || ' ', // Use space instead of empty string for Oracle
+        correct_answer: correctAnswer,
         question_order: i + 1
       });
 
       const questionId = question.question_id;
-      console.log('Created question with ID:', questionId, 'Type:', questionType);
 
-      // Create options for multiple choice questions only
       if (questionType === 'multiple_choice' && q.options && q.options.length > 0) {
         const optionsData = q.options
           .filter(opt => opt && opt.trim() !== '')
@@ -100,7 +140,6 @@ export async function createQuiz(req, res, next) {
       }
     }
 
-    // Fetch the complete quiz
     const completeQuiz = await Quiz.findByPk(quizId, {
       include: [
         {
@@ -116,7 +155,6 @@ export async function createQuiz(req, res, next) {
       ]
     });
 
-    // Transform to frontend format
     const transformedQuiz = transformQuiz(completeQuiz.toJSON());
 
     res.status(201).json({
@@ -148,7 +186,6 @@ export async function updateQuiz(req, res, next) {
       status
     } = req.body;
 
-    // Find existing quiz
     const quiz = await Quiz.findByPk(id);
 
     if (!quiz) {
@@ -158,15 +195,13 @@ export async function updateQuiz(req, res, next) {
       });
     }
 
-    // Determine isActive based on status, default to true
     const isActive = status === 'inactive' ? false : true;
 
-    // Update quiz details
     await quiz.update({
       title,
       description,
       category,
-      difficulty: difficulty || 'none',
+      difficulty: difficulty || 'medium',
       time_limit: timeLimit,
       xp_reward: xpReward || 100,
       is_active: isActive,
@@ -175,7 +210,6 @@ export async function updateQuiz(req, res, next) {
 
     const quizId = quiz.quiz_id;
 
-    // Delete existing questions and options
     const existingQuestions = await QuizQuestion.findAll({
       where: { quiz_id: quizId }
     });
@@ -191,38 +225,25 @@ export async function updateQuiz(req, res, next) {
       where: { quiz_id: quizId }
     });
 
-    // Create new questions and options
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
 
-      const questionType = q.type === 'multiple-choice' ? 'multiple_choice' : 
-                          q.type === 'yes-true' ? 'true_false' :
+      const questionType = q.type === 'multiple_choice' ? 'multiple_choice' : 
+                          q.type === 'true_false' ? 'true_false' :
                           q.type === 'open_ended' ? 'short_answer' :
                           q.type;
 
-      // For open-ended questions, use empty string as placeholder since DB doesn't allow null
-      // Ensure we ALWAYS have a string value, never null or undefined
       let correctAnswer = '';
       if (q.correctAnswer && q.correctAnswer.trim() !== '') {
         correctAnswer = q.correctAnswer.trim();
-      } else if (questionType !== 'short_answer') {
-        // Non-open-ended questions should have an answer
-        correctAnswer = q.correctAnswer || '';
       }
-      // For short_answer, correctAnswer stays empty string
-
-      console.log(`Updating question ${i + 1}:`, {
-        type: questionType,
-        text: q.text.substring(0, 50),
-        correctAnswer: correctAnswer === '' ? '(empty string)' : correctAnswer
-      });
 
       const question = await QuizQuestion.create({
         quiz_id: quizId,
         question_text: q.text,
         question_type: questionType,
         points: q.points || 10,
-        correct_answer: correctAnswer || ' ', // Use space instead of empty string for Oracle
+        correct_answer: correctAnswer,
         question_order: i + 1
       });
 
@@ -243,7 +264,6 @@ export async function updateQuiz(req, res, next) {
       }
     }
 
-    // Fetch the updated quiz
     const updatedQuiz = await Quiz.findByPk(quizId, {
       include: [
         {
@@ -270,7 +290,6 @@ export async function updateQuiz(req, res, next) {
       ]
     });
 
-    // Transform to frontend format
     const transformedQuiz = transformQuiz(updatedQuiz.toJSON());
 
     res.json({
@@ -284,69 +303,18 @@ export async function updateQuiz(req, res, next) {
   }
 }
 
-// Helper function to transform quiz data to frontend format
-function transformQuiz(quizJson) {
-  const transformedQuestions = (quizJson.questions || []).map(q => {
-    const questionType = q.question_type;
-    const frontendType = questionType === 'multiple_choice' ? 'multiple-choice' :
-                        questionType === 'true_false' ? 'yes-true' :
-                        questionType === 'short_answer' ? 'open_ended' :
-                        questionType;
-
-    return {
-      question_id: q.question_id,
-      text: q.question_text || '',
-      type: frontendType,
-      options: q.options?.map(opt => opt.option_text).filter(Boolean) || [],
-      correctAnswer: q.correct_answer || '', // Empty string for open-ended
-      points: q.points || 10
-    };
-  });
-
-  const transformedAttempts = (quizJson.attempts || []).map(attempt => {
-    const attemptAnswers = (attempt.answers || []).map(ans => ({
-      questionId: ans.question_id,
-      submittedAnswer: ans.user_answer,
-      isCorrect: ans.is_correct,
-      pointsEarned: ans.points_earned
-    }));
-    
-    return {
-      userId: attempt.user_id,
-      username: attempt.username || `User ${attempt.user_id}`,
-      score: attempt.score || 0,
-      maxScore: attempt.total_points || 0,
-      submittedAt: attempt.completed_at || attempt.started_at,
-      answers: attemptAnswers
-    };
-  }).filter(attempt => attempt.submittedAt);
-
-  return {
-    id: quizJson.quiz_id,
-    title: quizJson.title || '',
-    description: quizJson.description || '',
-    difficulty: (quizJson.difficulty || 'none').toLowerCase(),
-    category: quizJson.category || null,
-    timeLimit: quizJson.time_limit || null,
-    xpReward: quizJson.xp_reward || 100,
-    isActive: quizJson.is_active ?? true,
-    createdAt: quizJson.created_at,
-    updatedAt: quizJson.updated_at,
-    createdBy: quizJson.created_by || null,
-    deletedAt: null,
-    questions: transformedQuestions,
-    questionCount: transformedQuestions.length,
-    attempts: transformedAttempts
-  };
-}
-
 // Get all quizzes with attempts
 export async function getAllQuizzes(req, res, next) {
   try {
     const models = await initializeModels();
     const { Quiz, QuizQuestion, QuizQuestionOption, QuizAttempt, UserAnswer } = models;
 
+    // Check if request is from admin (you can add admin check here)
+    const showAll = req.query.showAll === 'true';
+    const whereClause = showAll ? {} : { is_published: true };
+
     const quizzes = await Quiz.findAll({
+      where: whereClause,
       include: [
         {
           model: QuizQuestion,
@@ -474,6 +442,56 @@ export async function updateQuizStatus(req, res, next) {
   }
 }
 
+// Toggle quiz publish status
+export async function toggleQuizPublish(req, res, next) {
+  try {
+    const models = await initializeModels();
+    const { Quiz, QuizQuestion, QuizQuestionOption } = models;
+    const { id } = req.params;
+
+    const quiz = await Quiz.findByPk(id, {
+      include: [
+        {
+          model: QuizQuestion,
+          as: 'questions',
+          include: [
+            {
+              model: QuizQuestionOption,
+              as: 'options'
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quiz not found'
+      });
+    }
+
+    const currentPublishStatus = quiz.is_published ?? false;
+    const newPublishStatus = !currentPublishStatus;
+
+    await quiz.update({
+      is_published: newPublishStatus,
+      updated_at: new Date()
+    });
+
+    const transformedQuiz = transformQuiz(quiz.toJSON());
+
+    res.json({
+      success: true,
+      message: newPublishStatus ? 'Quiz published successfully' : 'Quiz unpublished successfully',
+      data: transformedQuiz
+    });
+  } catch (error) {
+    console.error('Error toggling quiz publish status:', error);
+    next(error);
+  }
+}
+
 // Start quiz attempt
 export async function startQuizAttempt(req, res, next) {
   try {
@@ -553,16 +571,13 @@ export async function submitAnswer(req, res, next) {
     const correctAnswer = question.correct_answer;
     const points = question.points || 10;
 
-    // For open-ended/short_answer questions, mark as pending (requires manual grading)
     let isCorrect = null;
     let pointsEarned = 0;
 
     if (questionType === 'short_answer') {
-      // Short answer questions require manual grading
       isCorrect = null;
       pointsEarned = 0;
-    } else if (correctAnswer && correctAnswer.trim() !== '' && correctAnswer.trim() !== ' ') {
-      // Auto-grade other question types if they have a correct answer (excluding space placeholder)
+    } else if (correctAnswer && correctAnswer.trim() !== '') {
       isCorrect = correctAnswer.toLowerCase().trim() === userAnswer.toLowerCase().trim();
       pointsEarned = isCorrect ? points : 0;
     }
@@ -570,9 +585,9 @@ export async function submitAnswer(req, res, next) {
     const answer = await UserAnswer.create({
       attempt_id: attemptId,
       question_id: questionId,
-      user_answer: userAnswer,
+      user_answer: userAnswer || '',
       is_correct: isCorrect,
-      points_earned: pointsEarned,
+      points_earned: pointsEarned || 0,
       answered_at: new Date()
     });
 
@@ -599,27 +614,35 @@ export async function submitQuizAnswers(req, res, next) {
     const { id } = req.params;
     const { userId, answers } = req.body;
 
-    // console.log('=== BULK SUBMIT DEBUG ===');
-    // console.log('Quiz ID:', id);
-    // console.log('User ID (Azure/MICROSOFT_ID):', userId);
-    // console.log('Answers received:', answers?.length || 0);
+    console.log("=== BULK SUBMIT DEBUG ===");
+    console.log("Quiz ID:", id);
+    console.log("User ID (Azure/MICROSOFT_ID):", userId);
+    console.log("Answers received:", answers?.length || 0);
 
     if (!userId || !answers || !Array.isArray(answers)) {
       return res.status(400).json({
         success: false,
-        message: 'User ID and answers array are required'
+        message: "User ID and answers array are required",
       });
     }
 
-    let user = await User.findOne({
-      where: { MICROSOFT_ID: userId }
-    });
+    const azureIdFromToken = req.azureId || req.user?.azureId || req.user?.MICROSOFT_ID || null;
+
+    let user;
+
+    if (/^[0-9a-fA-F-]{36}$/.test(userId)) {
+      user = await User.findOne({ where: { MICROSOFT_ID: userId } });
+    } else if (azureIdFromToken) {
+      user = await User.findOne({ where: { MICROSOFT_ID: azureIdFromToken } });
+    } else {
+      user = await User.findByPk(userId);
+    }
 
     if (!user) {
-      console.error('User not found with MICROSOFT_ID:', userId);
+      console.error(`User not found with MICROSOFT_ID: ${userId}, token AzureID: ${azureIdFromToken}`);
       return res.status(404).json({
         success: false,
-        message: 'User not found. Please ensure you are registered in the system.'
+        message: "User not found. Please ensure you are registered in the system.",
       });
     }
 
@@ -643,7 +666,7 @@ export async function submitQuizAnswers(req, res, next) {
       });
     }
 
-     console.log('Quiz found:', quiz.title);
+    console.log('Quiz found:', quiz.title);
     console.log('Questions in quiz:', quiz.questions.length);
 
     const totalPoints = quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0);
@@ -662,7 +685,6 @@ export async function submitQuizAnswers(req, res, next) {
     const savedAnswers = [];
     let hasOpenEndedQuestions = false;
 
-    // Process each answer
     for (const answerData of answers) {
       const { question_id, answer } = answerData;
       
@@ -678,45 +700,53 @@ export async function submitQuizAnswers(req, res, next) {
       const questionType = question.question_type;
       const points = question.points || 10;
 
-      // Handle different question types
       let isCorrect = null;
       let pointsEarned = 0;
 
       if (questionType === 'short_answer') {
-        // Short answer questions require manual grading
         isCorrect = null;
         pointsEarned = 0;
         hasOpenEndedQuestions = true;
         console.log(`Question ${question_id}: Short answer (requires manual grading)`);
-      } else if (correctAnswer && correctAnswer.trim() !== '' && correctAnswer.trim() !== ' ') {
-        // Auto-grade other question types that have a correct answer (excluding space placeholder)
+      } else if (correctAnswer && correctAnswer !== '') {
         isCorrect = correctAnswer.toLowerCase() === userAnswerText.toLowerCase();
         pointsEarned = isCorrect ? points : 0;
         score += pointsEarned;
         console.log(`Question ${question_id}: ${isCorrect ? 'Correct' : 'Incorrect'} (${pointsEarned}/${points} points)`);
       } else {
-        // No correct answer provided - treat as manual grading
         isCorrect = null;
         pointsEarned = 0;
         hasOpenEndedQuestions = true;
         console.log(`Question ${question_id}: No correct answer (requires manual grading)`);
       }
 
-      const savedAnswer = await UserAnswer.create({
+      const savedAnswer = await models.sequelize.query(
+        `INSERT INTO USER_ANSWERS (ATTEMPT_ID, QUESTION_ID, USER_ANSWER, IS_CORRECT, POINTS_EARNED, ANSWERED_AT)
+         VALUES (:attemptId, :questionId, :userAnswer, :isCorrect, :pointsEarned, :answeredAt)`,
+        {
+          replacements: {
+            attemptId: attempt.attempt_id,
+            questionId: question_id,
+            userAnswer: userAnswerText || '',
+            isCorrect: isCorrect === null ? null : (isCorrect ? 1 : 0),
+            pointsEarned: pointsEarned || 0,
+            answeredAt: new Date()
+          },
+          type: models.sequelize.QueryTypes.INSERT
+        }
+      );
+
+      savedAnswers.push({
         attempt_id: attempt.attempt_id,
         question_id: question_id,
         user_answer: userAnswerText,
         is_correct: isCorrect,
-        points_earned: pointsEarned,
-        answered_at: new Date()
+        points_earned: pointsEarned
       });
-
-      savedAnswers.push(savedAnswer);
     }
 
-    // Calculate percentage (only for auto-graded questions)
     const autoGradedQuestions = quiz.questions.filter(q => 
-      q.question_type !== 'short_answer' && q.correct_answer && q.correct_answer.trim() !== '' && q.correct_answer.trim() !== ' '
+      q.question_type !== 'short_answer' && q.correct_answer && q.correct_answer.trim() !== ''
     );
     const autoGradedPoints = autoGradedQuestions.reduce((sum, q) => sum + (q.points || 0), 0);
     const percentage = autoGradedPoints > 0 ? (score / autoGradedPoints) * 100 : 0;

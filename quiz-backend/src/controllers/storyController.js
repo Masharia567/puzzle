@@ -8,12 +8,23 @@ let Story, Comment, User;
 async function getModels() {
   if (!Story) {
     const models = await initializeModels();
-    Story = models.Story;z
+    Story = models.Story;
     Comment = models.Comment;
     User = models.User;
+
+    // console.log('✅ Models initialized:', {
+    //   Story: !!Story,
+    //   Comment: !!Comment,
+    //   User: !!User,
+    // });
+
+    // // Optional: Log associations if available
+    // console.log('Story associations:', Story.associations);
+    // console.log('Comment associations:', Comment.associations);
   }
   return { Story, Comment, User };
 }
+
 
 // ===============================================
 // STORY OPERATIONS
@@ -627,4 +638,3 @@ export const unlikeStory = async (req, res) => {
   }
   
 };
-

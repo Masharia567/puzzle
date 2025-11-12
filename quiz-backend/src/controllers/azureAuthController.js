@@ -5,38 +5,46 @@ export async function azureLogin(req, res, next) {
     const { User } = await initializeModels();
     const azureUser = req.azureUser;
 
-    // console.log("Azure user object from middleware:", azureUser);
-
     const email = azureUser?.preferred_username || azureUser?.email;
     const name = azureUser?.name;
+    const azureId = azureUser?.oid || azureUser?.sub; // Get the Azure Object ID
 
-    if (!email) {
-      console.error("Azure login error: Missing email in Azure user data");
+    console.log("Azure ID from token:", azureId); // Debug log
+
+    if (!email || !azureId) {
+      console.error("Azure login error: Missing email or Azure ID");
       return res.status(400).json({
         success: false,
-        message: "Invalid Azure user data - missing email",
+        message: "Invalid Azure user data - missing email or Azure ID",
       });
     }
 
-    // Try to find the user in DB
-    let user = await User.findOne({ where: { MAIL: email } });
-
-    // Log before accessing user.ID
-    console.log("User lookup result:", user ? user.ID : null);
+    // Try to find user by Azure ID first, then by email
+    let user = await User.findOne({ 
+      where: { MICROSOFT_ID: azureId } 
+    });
 
     if (!user) {
-      console.log("No existing user found, creating a new one...");
-
-      user = await User.create({
-        USERNAME: name,
-        MAIL: email,
-        PASSWORD: null, // MSAL users don’t need local passwords
-      });
-
-      // console.log("New user created with ID:", user.ID);
-    } else {
-      // console.log("Existing user found with ID:", user.ID);
+      // Check if user exists with this email (legacy user)
+      user = await User.findOne({ where: { MAIL: email } });
+      
+      if (user) {
+        // Update existing user with Azure ID
+        console.log("Updating existing user with Azure ID...");
+        await user.update({ MICROSOFT_ID: azureId });
+      } else {
+        // Create new user
+        console.log("Creating new user with Azure ID...");
+        user = await User.create({
+          USERNAME: name,
+          MAIL: email,
+          MICROSOFT_ID: azureId, // SAVE THE AZURE ID HERE
+          PASSWORD: null,
+        });
+      }
     }
+
+    console.log("User authenticated with Azure ID:", user.MICROSOFT_ID);
 
     res.json({
       success: true,
@@ -45,6 +53,7 @@ export async function azureLogin(req, res, next) {
         userId: user.ID,
         USERNAME: user.USERNAME,
         MAIL: user.MAIL,
+        MICROSOFT_ID: user.MICROSOFT_ID, // Return it too
       },
     });
   } catch (error) {

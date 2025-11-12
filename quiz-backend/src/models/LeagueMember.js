@@ -7,61 +7,47 @@ export default function (sequelize) {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
-      field: 'ID'
+      field: 'ID',
     },
     league_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'LEAGUE_ID'
+      allowNull: true,
+      field: 'LEAGUE_ID',
     },
-    user_id: {
-      type: DataTypes.INTEGER,
+    userId: {
+      type: DataTypes.STRING(255),  // Match MICROSOFT_ID type
+      field: 'USER_ID',
       allowNull: false,
-      field: 'USER_ID'
+      references: {
+        model: 'USER',
+        key: 'MICROSOFT_ID'  // Reference MICROSOFT_ID, not ID
+      }
     },
     is_admin: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-      field: 'IS_ADMIN'
+      type: DataTypes.STRING(1),
+      allowNull: true,
+      defaultValue: 'N',
+      field: 'IS_ADMIN',
     },
     joined_at: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
       defaultValue: DataTypes.NOW,
-      field: 'JOINED_AT'
-    }
+      field: 'JOINED_AT',
+    },
   }, {
     tableName: 'LEAGUE_MEMBER',
     timestamps: false,
+    freezeTableName: true,
+    underscored: false,   // ← CRITICAL: stops snake_case
     indexes: [
-      {
-        unique: true,
-        fields: ['LEAGUE_ID', 'USER_ID']
-      },
-      {
-        fields: ['USER_ID']
-      },
-      {
-        fields: ['LEAGUE_ID', 'IS_ADMIN']
-      }
-    ]
+      { unique: true, fields: ['LEAGUE_ID', 'USER_ID'] },
+      { fields: ['USER_ID'] },
+      { fields: ['LEAGUE_ID', 'IS_ADMIN'] },
+    ],
   });
 
-  // 🔗 Associations
-  LeagueMember.associate = (models) => {
-    // League relationship
-    LeagueMember.belongsTo(models.League, {
-      foreignKey: 'league_id',
-      as: 'league'
-    });
 
-    // User relationship
-    LeagueMember.belongsTo(models.User, {
-      foreignKey: 'user_id',
-      as: 'user'
-    });
-  };
 
   return LeagueMember;
 }

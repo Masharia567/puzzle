@@ -86,6 +86,7 @@ export default function(sequelize) {
   }, {
     tableName: 'WORD_SEARCH_COMPLETIONS',
     timestamps: true,
+     paranoid: false, 
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   });

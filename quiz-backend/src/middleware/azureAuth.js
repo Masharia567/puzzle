@@ -41,6 +41,9 @@ export function verifyAzureToken(req, res, next) {
       }
 
       req.azureUser = decoded;
+
+      console.log("✅ Azure token verified:", decoded);
+
       next();
     }
   );

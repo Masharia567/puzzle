@@ -7,6 +7,7 @@ import {
   deleteLeague,
   leaveLeague
 } from '../controllers/leagueController.js';
+import { verifyAzureToken } from '../middleware/azureAuth.js';
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ const router = express.Router();
  * @desc Get all leagues (user's leagues + public leagues to discover)
  * @access Protected (requires authentication)
  */
-router.get('/', getLeagues);
+router.get('/leagues/get', verifyAzureToken, getLeagues);
 
 /**
  * @route POST /api/leagues
@@ -23,7 +24,7 @@ router.get('/', getLeagues);
  * @body { name, description?, type? }
  * @access Protected (requires authentication)
  */
-router.post('/', createLeague);
+router.post('/leagues/create', verifyAzureToken, createLeague);
 
 /**
  * @route POST /api/leagues/join
@@ -31,27 +32,27 @@ router.post('/', createLeague);
  * @body { code }
  * @access Protected (requires authentication)
  */
-router.post('/join', joinLeague);
+router.post('/leagues/join',verifyAzureToken, joinLeague);
 
 /**
  * @route GET /api/leagues/:leagueId
  * @desc Get detailed league information including standings and games
  * @access Protected (requires authentication)
  */
-router.get('/:leagueId', getLeagueDetails);
+router.get('/leagues/:leagueId',verifyAzureToken, getLeagueDetails);
 
 /**
  * @route DELETE /api/leagues/:leagueId
  * @desc Delete a league (admin only)
  * @access Protected (requires authentication + admin rights)
  */
-router.delete('/:leagueId', deleteLeague);
+router.delete('/leagues/:leagueId', verifyAzureToken,deleteLeague);
 
 /**
  * @route POST /api/leagues/:leagueId/leave
  * @desc Leave a league
  * @access Protected (requires authentication)
  */
-router.post('/:leagueId/leave', leaveLeague);
+router.post('/league/:leagueId/leave',verifyAzureToken, leaveLeague);
 
 export default router;

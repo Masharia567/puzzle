@@ -15,6 +15,7 @@ import CommentRoutes from './src/routes/commentRoutes.js';
 
 import authRoutes from './src/routes/authRoutes.js';
 import wordSearchRoutes from './src/routes/wordSearchRoutes.js';
+import opencircleRoutes from './src/routes/opencircleroutes.js'
 
 
 dotenv.config();
@@ -34,7 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use('/api', quizRoutes);
 app.use('/api/puzzles', puzzleRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/league', leagueRoutes);
+app.use('/api/', leagueRoutes);
 // Routes
 app.use("/api/admin/", adminGameRoutes);     // Admin routes
 app.use("/api/", gameRoutes); 
@@ -42,6 +43,7 @@ app.use("/api/", StoryRoutes);
 
 app.use("/api/", CommentRoutes); 
 app.use('/api/', wordSearchRoutes);
+app.use('/api/', opencircleRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

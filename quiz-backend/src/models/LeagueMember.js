@@ -23,12 +23,15 @@ export default function (sequelize) {
         key: 'MICROSOFT_ID'  // Reference MICROSOFT_ID, not ID
       }
     },
-    is_admin: {
-      type: DataTypes.STRING(1),
-      allowNull: true,
-      defaultValue: 'N',
-      field: 'IS_ADMIN',
-    },
+  is_admin: {
+  type: DataTypes.STRING(1),
+  allowNull: true,
+  defaultValue: 'N',  //  Already correct
+  field: 'IS_ADMIN',
+  validate: {
+    isIn: [['Y', 'N']]  // Only allow 'Y' or 'N'
+  }
+},
     joined_at: {
       type: DataTypes.DATE,
       allowNull: true,

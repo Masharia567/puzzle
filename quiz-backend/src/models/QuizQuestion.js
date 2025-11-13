@@ -26,13 +26,13 @@ export default function(sequelize) {
       type: DataTypes.STRING(20),
       allowNull: false,
       validate: {
-        isIn: [['multiple_choice', 'true_false', 'short_answer']]
+        isIn: [['multiple_choice', 'true_false', 'short_answer', 'open_ended']] // ✅ Added 'open_ended'
       },
       field: 'QUESTION_TYPE'
     },
     correct_answer: {
       type: DataTypes.STRING(500),
-      allowNull: false,
+      allowNull: true, // ✅ Changed from false to true
       field: 'CORRECT_ANSWER'
     },
     points: {

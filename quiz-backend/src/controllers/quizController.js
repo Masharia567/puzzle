@@ -109,9 +109,21 @@ export async function createQuiz(req, res, next) {
                           q.type === 'open_ended' ? 'short_answer' :
                           q.type;
 
-      let correctAnswer = '';
-      if (q.correctAnswer && q.correctAnswer.trim() !== '') {
+      // Handle correct_answer based on question type
+      let correctAnswer = null;
+      
+      if (questionType === 'short_answer') {
+        // For open-ended questions, always set to null
+        correctAnswer = null;
+      } else if (q.correctAnswer && q.correctAnswer.trim() !== '') {
+        // For other question types, use the provided answer
         correctAnswer = q.correctAnswer.trim();
+      } else {
+        // If no answer provided for non-open-ended questions, this is an error
+        return res.status(400).json({
+          success: false,
+          message: `Question "${q.text}" requires a correct answer`
+        });
       }
 
       const question = await QuizQuestion.create({
@@ -233,9 +245,21 @@ export async function updateQuiz(req, res, next) {
                           q.type === 'open_ended' ? 'short_answer' :
                           q.type;
 
-      let correctAnswer = '';
-      if (q.correctAnswer && q.correctAnswer.trim() !== '') {
+      // Handle correct_answer based on question type
+      let correctAnswer = null;
+      
+      if (questionType === 'short_answer') {
+        // For open-ended questions, always set to null
+        correctAnswer = null;
+      } else if (q.correctAnswer && q.correctAnswer.trim() !== '') {
+        // For other question types, use the provided answer
         correctAnswer = q.correctAnswer.trim();
+      } else {
+        // If no answer provided for non-open-ended questions, this is an error
+        return res.status(400).json({
+          success: false,
+          message: `Question "${q.text}" requires a correct answer`
+        });
       }
 
       const question = await QuizQuestion.create({
@@ -569,7 +593,7 @@ export async function submitAnswer(req, res, next) {
 
     const questionType = question.question_type;
     const correctAnswer = question.correct_answer;
-    const points = question.points || 10;
+    const points = question.points || 1;
 
     let isCorrect = null;
     let pointsEarned = 0;
@@ -698,7 +722,7 @@ export async function submitQuizAnswers(req, res, next) {
       const userAnswerText = (answer || '').toString().trim();
       const correctAnswer = (question.correct_answer || '').toString().trim();
       const questionType = question.question_type;
-      const points = question.points || 10;
+      const points = question.points || 1;
 
       let isCorrect = null;
       let pointsEarned = 0;

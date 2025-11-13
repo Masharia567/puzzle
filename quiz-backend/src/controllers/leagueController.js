@@ -1,5 +1,5 @@
 // src/controllers/leagueController.js
-import { Op, where } from 'sequelize';
+import { Op } from 'sequelize';
 import { initializeModels } from '../models/index.js';
 
 /* -------------------------------------------------------------------------- */
@@ -45,27 +45,30 @@ export async function getLeagues(req, res, next) {
     // ---- My memberships ----
     console.log('getLeagues → Fetching memberships for USER_ID:', userId);
     const myMemberships = await LeagueMember.findAll({
-      where: { USER_ID: userId },
-      attributes: ['LEAGUE_ID', 'IS_ADMIN'],
+      where: { userId: userId },
+      attributes: ['league_id', 'is_admin'],
     });
 
     console.log('getLeagues → myMemberships:', myMemberships.map(m => m.toJSON()));
 
-    const myLeagueIds = myMemberships.map((m) => m.dataValues.LEAGUE_ID);
+    const myLeagueIds = myMemberships.map((m) => m.dataValues.league_id);
     console.log('getLeagues → myLeagueIds:', myLeagueIds);
 
-    const myLeagues = myLeagueIds.length
-      ? await League.findAll({
+    let myLeagues = [];
+    if (myLeagueIds.length > 0) {
+      myLeagues = await League.findAll({
         where: { ID: { [Op.in]: myLeagueIds } },
         include: [
           { model: User, as: 'creator', attributes: ['ID', 'DISPLAYNAME'] },
-          { model: LeagueMember, as: 'memberships', attributes: ['USER_ID'] },
+          { model: LeagueMember, as: 'memberships', attributes: ['userId'] },
         ],
-      })
-      : [];
+      });
+    }
 
     console.log('getLeagues → myLeagues count:', myLeagues.length);
-    myLeagues.forEach(l => console.log('myLeague →', l.toJSON()));
+    if (myLeagues.length > 0) {
+      myLeagues.forEach(l => console.log('myLeague →', l.toJSON()));
+    }
 
     // ---- Public leagues ----
     const publicWhere = {
@@ -78,31 +81,30 @@ export async function getLeagues(req, res, next) {
       where: publicWhere,
       include: [
         { model: User, as: 'creator', attributes: ['ID', 'DISPLAYNAME'] },
-        { model: LeagueMember, as: 'memberships', attributes: ['USER_ID'] },
+        { model: LeagueMember, as: 'memberships', attributes: ['userId'] },
       ],
     });
 
     console.log('getLeagues → publicLeagues count:', publicLeagues.length);
 
     // ---- Enrich my leagues ----
-    // ---- Enrich my leagues ----
     const enrichedMy = myLeagues.map((league) => {
-      const leagueJson = league.toJSON(); // Add this line
-      const membership = myMemberships.find((m) => m.dataValues.LEAGUE_ID === leagueJson.id);
+      const leagueJson = league.toJSON();
+      const membership = myMemberships.find((m) => m.dataValues.league_id === leagueJson.id);
       const memberCount = leagueJson.memberships?.length ?? 0;
       const userRank = memberCount ? Math.floor(Math.random() * memberCount) + 1 : 1;
       const previousRank = userRank > 1 ? Math.max(1, userRank - Math.floor(Math.random() * 3)) : null;
 
       const result = {
-        id: leagueJson.id,                    // Use leagueJson
-        name: leagueJson.name,                // Use leagueJson
-        code: leagueJson.code,                // Use leagueJson
-        description: leagueJson.description,  // Use leagueJson
-        type: leagueJson.type,                // Use leagueJson
+        id: leagueJson.id,
+        name: leagueJson.name,
+        code: leagueJson.code,
+        description: leagueJson.description,
+        type: leagueJson.type,
         createdBy: leagueJson.creator?.DISPLAYNAME ?? 'Unknown',
         createdAt: leagueJson.createdAt,
         memberCount,
-        isAdmin: membership?.dataValues.IS_ADMIN === 'Y', // Also fix this
+        isAdmin: membership?.dataValues.is_admin === 'Y',
         isMember: true,
         userRank,
         previousRank,
@@ -116,14 +118,14 @@ export async function getLeagues(req, res, next) {
 
     // ---- Enrich public leagues ----
     const enrichedPublic = publicLeagues.map((league) => {
-      const leagueJson = league.toJSON(); // Add this line
+      const leagueJson = league.toJSON();
 
       const result = {
-        id: leagueJson.id,                    // Use leagueJson
-        name: leagueJson.name,                // Use leagueJson
-        code: leagueJson.code,                // Use leagueJson
-        description: leagueJson.description,  // Use leagueJson
-        type: leagueJson.type,                // Use leagueJson
+        id: leagueJson.id,
+        name: leagueJson.name,
+        code: leagueJson.code,
+        description: leagueJson.description,
+        type: leagueJson.type,
         createdBy: leagueJson.creator?.DISPLAYNAME ?? 'Unknown',
         createdAt: leagueJson.createdAt,
         memberCount: leagueJson.memberships?.length ?? 0,
@@ -267,12 +269,11 @@ export async function joinLeague(req, res, next) {
       return res.status(404).json({ success: false, message: 'Invalid league code' });
     }
 
-    // FIX: Get the ID value properly using .get() method or dataValues
-    const leagueId = league.get('id'); // This gets the aliased lowercase 'id'
+    const leagueId = league.get('id');
     console.log('joinLeague → leagueId extracted:', leagueId);
 
     const alreadyMember = await LeagueMember.findOne({
-      where: { LEAGUE_ID: leagueId, USER_ID: userId }, // Use the extracted leagueId
+      where: { league_id: leagueId, userId: userId },
     });
 
     if (alreadyMember) {
@@ -281,15 +282,15 @@ export async function joinLeague(req, res, next) {
     }
 
     await LeagueMember.create({
-      LEAGUE_ID: leagueId, // Use the extracted leagueId
-      USER_ID: userId,
-      IS_ADMIN: 'N', // FIX: Should be 'N' not false
-      JOINED_AT: new Date(),
+      league_id: leagueId,
+      userId: userId,
+      is_admin: 'N',
+      joined_at: new Date(),
     });
 
     console.log('joinLeague → joined successfully');
 
-    const memberCount = await LeagueMember.count({ where: { LEAGUE_ID: leagueId } }); // Use the extracted leagueId
+    const memberCount = await LeagueMember.count({ where: { league_id: leagueId } });
     console.log('joinLeague → memberCount:', memberCount);
 
     return res.json({
@@ -331,6 +332,11 @@ export async function getLeagueDetails(req, res, next) {
       return res.status(401).json({ success: false, message: 'Unauthenticated' });
     }
 
+    if (!leagueId || leagueId === 'undefined') {
+      console.error('getLeagueDetails → Invalid leagueId:', leagueId);
+      return res.status(400).json({ success: false, message: 'League ID is required' });
+    }
+
     const { League, LeagueMember, User } = await initializeModels();
 
     const league = await League.findByPk(leagueId, {
@@ -343,25 +349,23 @@ export async function getLeagueDetails(req, res, next) {
       return res.status(404).json({ success: false, message: 'League not found' });
     }
 
-    // FIX: Use lowercase 'id' from the aliased field
-    const leagueIdValue = league.get('id'); // or league.dataValues.id
+    const leagueIdValue = league.get('id');
 
+    // Fixed: Check membership first, then check admin status
     const membership = await LeagueMember.findOne({
-      where: { LEAGUE_ID: league.id, USER_ID: userId, IS_ADMIN: true },
+      where: { league_id: leagueIdValue, userId: userId },
     });
 
     console.log('getLeagueDetails → membership:', membership?.toJSON());
 
     const isMember = !!membership;
-    const isAdmin = membership?.IS_ADMIN === 'Y'; // Also fix this check
+    const isAdmin = membership?.is_admin === 'Y';
 
     // ---- Standings ----
     const membersRaw = await LeagueMember.findAll({
-      where: { LEAGUE_ID: leagueIdValue }, // Use the extracted value
+      where: { league_id: leagueIdValue },
       include: [{ model: User, as: 'user', attributes: ['ID', 'DISPLAYNAME'] }],
     });
-
-    // ... rest of your code remains the same
 
     console.log('getLeagueDetails → membersRaw count:', membersRaw.length);
 
@@ -371,21 +375,24 @@ export async function getLeagueDetails(req, res, next) {
       const rank = idx + 1;
       const previousRank = rank > 1 ? Math.max(1, rank - Math.floor(Math.random() * 3)) : null;
 
-      const user = m.USER || {};
+      // Get user data from the association (can be m.user or m.dataValues.user)
+      const userData = m.user || m.dataValues?.user || m.USER || {};
+      const memberUserId = m.userId || m.dataValues?.userId; // Get userId from LeagueMember
+      
       const result = {
-        userId: user.ID,
-        username: user.DISPLAYNAME ?? 'Unknown',
+        userId: memberUserId,
+        username: userData.DISPLAYNAME ?? 'Unknown User',
         totalScore,
         weeklyPoints: weekly,
         quizzesTaken: Math.floor(Math.random() * 50) + 10,
         puzzlesSolved: Math.floor(Math.random() * 40) + 5,
         rank,
         previousRank,
-        joinedAt: m.JOINED_AT,
-        isCurrentUser: user.ID === userId,
+        joinedAt: m.joined_at || m.dataValues?.joined_at || m.JOINED_AT,
+        isCurrentUser: memberUserId === userId,
       };
 
-      console.log('member →', result);
+      console.log('member → userId:', memberUserId, 'matches current?', memberUserId === userId, 'current userId:', userId);
       return result;
     });
 
@@ -458,7 +465,7 @@ export async function getLeagueDetails(req, res, next) {
 export async function deleteLeague(req, res, next) {
   try {
     const userId = getUserId(req);
-    const { league_id } = req.params;
+    const { leagueId } = req.params;
 
     console.log(`deleteLeague → userId: ${userId}, leagueId: ${leagueId}`);
 
@@ -466,10 +473,16 @@ export async function deleteLeague(req, res, next) {
       return res.status(401).json({ success: false, message: 'Unauthenticated' });
     }
 
+    if (!leagueId || leagueId === 'undefined') {
+      console.error('deleteLeague → Invalid leagueId:', leagueId);
+      return res.status(400).json({ success: false, message: 'League ID is required' });
+    }
+
     const { League, LeagueMember } = await initializeModels();
 
+    // Fixed: Use 'Y' instead of true
     const membership = await LeagueMember.findOne({
-      where: { LEAGUE_ID: leagueId, USER_ID: userId, IS_ADMIN: true },
+      where: { league_id: leagueId, userId: userId, is_admin: 'Y' },
     });
 
     console.log('deleteLeague → admin check:', !!membership);
@@ -478,7 +491,7 @@ export async function deleteLeague(req, res, next) {
       return res.status(403).json({ success: false, message: 'Admin rights required' });
     }
 
-    await LeagueMember.destroy({ where: { LEAGUE_ID: leagueId } });
+    await LeagueMember.destroy({ where: { league_id: leagueId } });
     await League.destroy({ where: { ID: leagueId } });
 
     console.log('deleteLeague → league deleted');
@@ -505,10 +518,15 @@ export async function leaveLeague(req, res, next) {
       return res.status(401).json({ success: false, message: 'Unauthenticated' });
     }
 
+    if (!leagueId || leagueId === 'undefined') {
+      console.error('leaveLeague → Invalid leagueId:', leagueId);
+      return res.status(400).json({ success: false, message: 'League ID is required' });
+    }
+
     const { League, LeagueMember } = await initializeModels();
 
     const membership = await LeagueMember.findOne({
-      where: { LEAGUE_ID: leagueId, USER_ID: userId },
+      where: { league_id: leagueId, userId: userId },
     });
 
     console.log('leaveLeague → membership:', membership?.toJSON());
@@ -517,16 +535,17 @@ export async function leaveLeague(req, res, next) {
       return res.status(404).json({ success: false, message: 'Not a member of this league' });
     }
 
-    if (membership.IS_ADMIN) {
+    // Fixed: Check if is_admin === 'Y'
+    if (membership.is_admin === 'Y') {
       const adminCount = await LeagueMember.count({
-        where: { LEAGUE_ID: leagueId, IS_ADMIN: true },
+        where: { league_id: leagueId, is_admin: 'Y' },
       });
 
       console.log('leaveLeague → adminCount:', adminCount);
 
       if (adminCount === 1) {
         const totalMembers = await LeagueMember.count({
-          where: { LEAGUE_ID: leagueId },
+          where: { league_id: leagueId },
         });
 
         if (totalMembers > 1) {
@@ -539,12 +558,12 @@ export async function leaveLeague(req, res, next) {
     }
 
     await LeagueMember.destroy({
-      where: { LEAGUE_ID: leagueId, USER_ID: userId },
+      where: { league_id: leagueId, userId: userId },
     });
 
     console.log('leaveLeague → left league');
 
-    const remaining = await LeagueMember.count({ where: { LEAGUE_ID: leagueId } });
+    const remaining = await LeagueMember.count({ where: { league_id: leagueId } });
     if (remaining === 0) {
       await League.destroy({ where: { ID: leagueId } });
       console.log('leaveLeague → empty league deleted');
